@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+<meta content="#b7192f" name="theme-color"/>
+<meta content="CardScope : calculateur manuel minimal d’équité Texas Hold’em pour entraînement et review." name="description"/>
+<title>CardScope V11.4 — moteur renforcé + actions</title>
+<link href="manifest.webmanifest" rel="manifest"/>
+<link href="style.css?v=11.4" rel="stylesheet"/>
+</head>
+<body>
+<main class="app-shell">
+<header class="topbar minimal-topbar"><div class="brand-row"><h1>CardScope</h1><span class="version-pill">V11.4</span></div><div class="header-actions"><button class="btn btn-ghost btn-small" id="resetAll" title="Réinitialiser la table" type="button">Réinitialiser</button></div></header>
+<section aria-labelledby="quickSetupTitle" class="panel quick-setup hidden-render-target legacy-controls">
+<div class="quick-setup-head">
+<div>
+<p class="section-label" id="quickSetupTitle">Réglage rapide de la table</p>
+<p class="help">Les réglages essentiels sont ici. Pour un joueur, clique directement sur son siège.</p>
+</div>
+<div class="setup-state-chip"><span id="setupPlayersSummary">4 joueurs</span><b id="setupBlindSummary">0,50 € / 1,00 €</b></div>
+</div>
+<div class="quick-setup-grid">
+<label class="quick-field quick-format">
+<span><button class="term-link" data-term="format" type="button">Format</button></span>
+<small id="formatDescription">Table 5-max avec 4 joueurs assis par défaut.</small>
+</label>
+<div class="quick-field">
+<span>Joueurs dans le coup</span>
+<div aria-label="Joueurs dans le coup" class="stepper compact-stepper">
+<button aria-label="Coucher un adversaire" id="playersMinus" type="button">−</button>
+<output aria-live="polite" id="playersCount">4 joueurs</output>
+<button aria-label="Réactiver ou ajouter un adversaire" id="playersPlus" type="button">+</button>
+</div>
+<small>− couche un adversaire ; + le réactive ou ajoute un siège.</small>
+</div>
+<label class="quick-field">
+<span><button class="term-link" data-term="stack" type="button">Stack de départ par joueur</button></span>
+<div class="inline-input-action">
+<input id="defaultStack" min="0" step="0.01" type="number" value="100"/>
+<button class="btn btn-ghost btn-small" id="applyDefaultStack" type="button">Appliquer à tous</button>
+</div>
+<small>Ensuite, clique sur un siège pour corriger le stack d’un joueur précis.</small>
+</label>
+<div class="quick-field">
+<span><button class="term-link" data-term="blinds" type="button">Blindes</button></span>
+<div class="blinds-pair">
+<label><small>Petite</small><input id="smallBlind" min="0" step="0.01" type="number" value="0.50"/></label>
+<label><small>Grosse</small><input id="bigBlind" min="0.01" step="0.01" type="number" value="1.00"/></label>
+</div>
+<small>Elles seront postées automatiquement au démarrage de chaque main.</small>
+</div>
+
+<div class="quick-field quick-options">
+<label><span><button class="term-link" data-term="cardTheme" type="button">Cartes</button></span>
+</label>
+<label class="switch-row" for="coachMode">
+<span>Commentaires</span>
+<span class="switch"><input id="coachMode" type="checkbox"/><span aria-hidden="true" class="switch-ui"></span></span>
+</label>
+</div>
+</div>
+</section>
+<section class="table-layout">
+<div class="table-main-column">
+<section class="panel table-panel">
+<div class="simple-top-controls">
+<div class="player-count-quick">
+<strong>Joueurs</strong>
+<div aria-label="Nombre de joueurs" class="player-count-buttons">
+<button aria-label="2 joueurs" data-player-count="2" type="button">2</button><button aria-label="3 joueurs" data-player-count="3" type="button">3</button><button aria-label="4 joueurs" data-player-count="4" type="button">4</button><button aria-label="5 joueurs" data-player-count="5" type="button">5</button><button aria-label="6 joueurs" data-player-count="6" type="button">6</button><button aria-label="7 joueurs" data-player-count="7" type="button">7</button><button aria-label="8 joueurs" data-player-count="8" type="button">8</button><button aria-label="9 joueurs" data-player-count="9" type="button">9</button>
+</div>
+</div>
+<div class="simple-state-actions"><span class="street-mini" id="streetName">Préflop</span><button aria-label="Réglages" class="icon-settings hidden-render-target" id="openTableSettings" title="Réglages" type="button">⚙</button><button class="hidden-render-target" id="openOuts" type="button">Sorties</button></div>
+</div>
+<section aria-label="Déroulé de la main" class="hand-flow hand-flow-simple">
+<div class="hand-flow-status">
+<span class="pill is-on" id="handStateBadge">Préparation</span>
+<div class="mini-hand-text hidden-render-target">
+<strong id="handStateTitle">Prépare la table</strong>
+<small id="handStateHint">Choisis tes cartes puis démarre la main.</small>
+</div>
+</div>
+<div aria-hidden="true" class="hand-flow-steps is-hidden-flow" id="handFlowSteps">
+<span data-step="setup">Réglage</span><span data-step="0">Préflop</span><span data-step="1">Flop</span><span data-step="2">Turn</span><span data-step="3">River</span><span data-step="complete">Terminée</span>
+</div>
+<div class="hand-flow-actions">
+<button class="btn btn-primary btn-hand-main" id="newHand" type="button" hidden>Démarrer la main</button>
+<button aria-hidden="true" class="btn btn-ghost" hidden="" id="advanceStreet" type="button">Street suivante</button>
+<button class="btn btn-danger" id="finishHand" type="button">Terminer la main</button>
+</div>
+</section>
+<div class="poker-table-wrap">
+<div class="poker-table">
+<div class="table-inner-ring"></div>
+<div class="table-title" id="tableFormatLabel">CASH GAME · NLHE · 5-MAX</div>
+<div class="pot-badge hidden-render-target"><span id="streetBadge">Préflop</span><strong>Pot <b id="tablePotValue">0,00 €</b></strong></div>
+<div aria-label="Cartes communes" class="board-slots" id="boardSlots"></div>
+<div aria-hidden="true" class="board-labels">
+<span>FLOP</span><span></span><span></span><span>TURN</span><span>RIVER</span>
+</div>
+<div class="hero-zone">
+<div aria-hidden="true" class="seat-badge hero-badge"><span>HERO</span><small id="heroPosition">BTN</small></div>
+<div aria-label="Tes deux cartes" class="hero-slots" id="heroSlots"></div>
+<button aria-hidden="true" class="hero-status-chip" id="heroTableStatus" tabindex="-1" type="button">Dans le coup</button>
+</div>
+<div class="seat-layer" id="seatLayer"></div>
+</div>
+</div>
+<section aria-label="Actions du joueur" class="hero-action-console hidden-render-target">
+<div class="bet-sizing-row">
+<span>Taille rapide</span>
+<button data-pot-size="0.25" type="button">25 %</button>
+<button data-pot-size="0.33" type="button">33 %</button>
+<button data-pot-size="0.50" type="button">50 %</button>
+<button data-pot-size="0.66" type="button">66 %</button>
+<button data-pot-size="0.75" type="button">75 %</button>
+<button data-pot-size="1" type="button">POT</button>
+</div>
+<div class="hero-action-row">
+<button class="poker-action poker-action-fold" id="heroFold" type="button">PASSER</button>
+<button class="poker-action poker-action-call" id="heroCheckCall" type="button">PAROLE</button>
+<button class="poker-action poker-action-raise" id="heroBetRaise" type="button">MISER</button>
+<button class="poker-action poker-action-allin" id="heroAllIn" type="button">TAPIS</button>
+</div>
+<p class="hero-action-hint" id="heroActionHint">Les boutons mettent à jour les mises de Hero dans cette main de review.</p>
+</section>
+<p class="selection-hint" id="selectionHint">Choisis tes deux cartes. Pendant la main, ajoute directement les 3 cartes du flop, puis la turn et la river.</p>
+<p class="seat-edit-hint hidden-render-target">Astuce : clique sur <strong>Hero</strong> ou sur n’importe quel joueur pour modifier son stack, son statut, sa mise ou ses informations de range.</p>
+<section aria-live="polite" class="table-comment-strip hidden-render-target">
+<div class="table-comment-head">
+<div>
+<p class="section-label">Verdict de review</p>
+<p class="help">Toujours juste sous la table, sans avoir à descendre dans la page.</p>
+</div>
+<span class="pill" id="commentModeState">désactivé</span>
+</div>
+<div class="commentary-box compact-comment is-muted" id="commentaryBox">Active l’option “Afficher les commentaires” au-dessus de la table pour obtenir une lecture pédagogique.</div>
+</section>
+<div aria-hidden="true" class="bet-manager hidden-render-target" id="betManager">
+<div class="bet-rows" id="betRows"></div>
+<span id="potSummary">Pot : 0,00 €</span>
+</div>
+</section>
+</div>
+<aside class="sidebar-stack compact-sidebar">
+<section aria-live="polite" class="model-results-grid">
+<article class="model-result-card raw-model">
+<div class="model-result-head"><div><span class="model-kicker">Probabilité</span><h3>Gagner</h3></div></div>
+<strong class="model-main-value" id="winValue">—</strong>
+<small id="winContext">—</small>
+<div class="model-substats compact-substats"><div class="hidden-render-target"><span>Équité</span><b id="equityValue">—</b></div><div><span>Égalité</span><b id="tieValue">—</b></div><div><span>Perdre</span><b id="lossValue">—</b></div></div>
+<div class="precision-direct"><label for="iterations"><span class="precision-direct-label">Précision</span><select aria-label="Nombre de simulations" id="iterations">
+<option value="1000">1 000 — aperçu</option>
+<option value="3000">3 000 — très rapide</option>
+<option value="5000">5 000 — rapide</option>
+<option value="10000">10 000 — recommandé</option>
+<option value="20000">20 000 — stable</option>
+<option value="30000">30 000 — très stable</option>
+<option value="50000">50 000 — haute précision</option>
+<option value="100000">100 000 — ultra précis</option>
+<option selected="selected" value="250000">250 000 — PC</option>
+<option value="500000">500 000 — très lourd</option>
+<option value="1000000">1 000 000 — extrême</option>
+<option value="2000000">2 000 000 — maximum</option>
+</select></label><small class="precision-direct-hint" id="precisionHint">250 000 : mode PC, haute précision.</small></div><button class="btn btn-primary btn-small simple-recalc" id="calculateNow" type="button">↻ Recalculer</button><p class="help compact-calc-status" id="calculationStatus">En attente de tes cartes…</p></article>
+<article class="model-result-card pressure-model is-pressure-hidden" id="pressureModelCard">
+<div class="model-result-head"><div><span class="model-kicker">Après les actions adverses</span><h3>Proba ajustée</h3></div><span class="model-badge pressure-badge">ACTIONS</span></div>
+<strong class="model-main-value" id="rangeWinValue">—</strong>
+<small id="rangeContext">Renseigne + / ++ / +++ sur un joueur.</small>
+<div class="pressure-impact" id="pressureImpactText">—</div>
+<div class="model-substats compact-substats"><div><span>Équité après actions</span><b id="rangeEquityValue">—</b></div><div><span>Différence</span><b id="rangeDeltaValue">—</b></div><div><span>Actions</span><b id="rangeModelLabel">0</b></div></div>
+<div class="pressure-reliability" id="pressureReliability">Fiabilité : —</div>
+<div class="situation-verdict verdict-neutral" id="pressureVerdict"><span class="verdict-dot"></span><div><strong>Situation à estimer</strong><small>Ajoute une action adverse.</small></div></div>
+<div class="estimated-hands-entry"><button class="estimated-hands-trigger" id="openEstimatedHands" type="button">Voir les mains estimées</button></div>
+</article>
+</section>
+<section aria-labelledby="heroOutcomesTitle" aria-live="polite" class="hero-outcomes-card">
+<div class="hero-outcomes-head">
+<div>
+<span class="model-kicker">Avec tes cartes</span>
+<h3 id="heroOutcomesTitle">Ce que tu peux toucher</h3>
+</div>
+<strong class="hero-mini-cards" id="heroCardsMini">—</strong>
+</div>
+<div class="hero-outcomes-summary">
+<div><span>Main actuelle</span><b id="heroMadeHand">—</b></div>
+<div><span id="improveChanceLabel">Améliorer d’ici la river</span><b id="improveChance">—</b></div>
+</div>
+<div class="helpful-cards-box" id="helpfulCardsBox">
+<div class="helpful-cards-head"><span>Cartes qui peuvent t’aider</span><small id="helpfulCardsStreet">—</small></div>
+<div class="helpful-cards-list" id="helpfulCardsList"><div class="helpful-card-empty">Ajoute le flop pour voir les cartes qui peuvent améliorer ta main.</div></div>
+</div>
+<div class="touch-prob-list" id="touchProbList">
+<div class="touch-empty">Lance le calcul pour voir les mains que tu peux obtenir.</div>
+</div>
+<small class="touch-hint" id="touchHint">Les pourcentages concernent ta combinaison finale, indépendamment de la main adverse.</small>
+</section>
+<section class="panel compact-hand-summary hidden-render-target">
+<div class="compact-summary-head"><p class="section-label">Résumé du coup</p><strong id="currentHandLabel">—</strong></div>
+<div class="compact-summary-grid">
+<div><span>Pot</span><b id="autoPot">0,00 €</b></div>
+<div><span>À suivre</span><b id="autoCall">0,00 €</b></div>
+<div><span>Équité requise</span><b id="requiredEquity">—</b></div>
+<div><span>EV du call</span><b id="callEv">—</b></div>
+</div>
+</section>
+<div aria-hidden="true" class="hidden-data">
+<strong id="currentDrawLabel">—</strong><strong id="opponentsLabel">1</strong><strong id="knownCardsLabel">0</strong>
+<strong id="contestablePot">0,00 €</strong><strong id="effectiveStack">—</strong><strong id="sprValue">—</strong>
+<div id="reviewVerdict"></div><p id="potResult"></p>
+</div>
+<section aria-labelledby="handRankingTitle" class="hand-ranking-lexicon">
+<div class="hand-ranking-head">
+<div>
+<span class="model-kicker">Mémo visuel</span>
+<h2 id="handRankingTitle">Ordre des mains</h2>
+</div>
+<span class="ranking-direction">1 = + FORT</span>
+</div>
+<p class="hand-ranking-helper">Tes cartes sont reprises en miniature. Vert = tes cartes · pointillé = carte possible à venir.</p>
+<div class="hand-ranking-grid" id="handRankingGrid">
+<div class="hand-rank-item" data-hand-category="royal"><b>1</b><span><strong>Quinte flush royale</strong><small class="hand-rank-example"><span class="memo-card red suit-1">10♥</span><span class="memo-card red suit-1">J♥</span><span class="memo-card red suit-1">Q♥</span><span class="memo-card red suit-1">K♥</span><span class="memo-card red suit-1">A♥</span></small></span><em class="hand-rank-prob">—</em></div>
+<div class="hand-rank-item" data-hand-category="8"><b>2</b><span><strong>Quinte flush</strong><small class="hand-rank-example"><span class="memo-card suit-0">5♠</span><span class="memo-card suit-0">6♠</span><span class="memo-card suit-0">7♠</span><span class="memo-card suit-0">8♠</span><span class="memo-card suit-0">9♠</span></small></span><em class="hand-rank-prob">—</em></div>
+<div class="hand-rank-item" data-hand-category="7"><b>3</b><span><strong>Carré</strong><small class="hand-rank-example"><span class="memo-card suit-0">Q♠</span><span class="memo-card red suit-1">Q♥</span><span class="memo-card red suit-2">Q♦</span><span class="memo-card suit-3">Q♣</span><span class="memo-card suit-0">2♠</span></small></span><em class="hand-rank-prob">—</em></div>
+<div class="hand-rank-item" data-hand-category="6"><b>4</b><span><strong>Full</strong><small class="hand-rank-example"><span class="memo-card suit-0">10♠</span><span class="memo-card red suit-1">10♥</span><span class="memo-card red suit-2">10♦</span><span class="memo-card suit-3">7♣</span><span class="memo-card red suit-1">7♥</span></small></span><em class="hand-rank-prob">—</em></div>
+<div class="hand-rank-item" data-hand-category="5"><b>5</b><span><strong>Couleur</strong><small class="hand-rank-example"><span class="memo-card red suit-1">2♥</span><span class="memo-card red suit-1">5♥</span><span class="memo-card red suit-1">8♥</span><span class="memo-card red suit-1">J♥</span><span class="memo-card red suit-1">K♥</span></small></span><em class="hand-rank-prob">—</em></div>
+<div class="hand-rank-item" data-hand-category="4"><b>6</b><span><strong>Quinte</strong><small class="hand-rank-example"><span class="memo-card suit-3">5♣</span><span class="memo-card red suit-2">6♦</span><span class="memo-card red suit-1">7♥</span><span class="memo-card suit-0">8♠</span><span class="memo-card suit-3">9♣</span></small></span><em class="hand-rank-prob">—</em></div>
+<div class="hand-rank-item" data-hand-category="3"><b>7</b><span><strong>Brelan</strong><small class="hand-rank-example"><span class="memo-card suit-0">K♠</span><span class="memo-card red suit-1">K♥</span><span class="memo-card red suit-2">K♦</span><span class="memo-card suit-3">5♣</span><span class="memo-card red suit-1">2♥</span></small></span><em class="hand-rank-prob">—</em></div>
+<div class="hand-rank-item" data-hand-category="2"><b>8</b><span><strong>Deux paires</strong><small class="hand-rank-example"><span class="memo-card suit-0">A♠</span><span class="memo-card red suit-1">A♥</span><span class="memo-card red suit-2">8♦</span><span class="memo-card suit-3">8♣</span><span class="memo-card suit-0">3♠</span></small></span><em class="hand-rank-prob">—</em></div>
+<div class="hand-rank-item" data-hand-category="1"><b>9</b><span><strong>Paire</strong><small class="hand-rank-example"><span class="memo-card suit-0">J♠</span><span class="memo-card red suit-1">J♥</span><span class="memo-card red suit-2">8♦</span><span class="memo-card suit-3">5♣</span><span class="memo-card suit-0">2♠</span></small></span><em class="hand-rank-prob">—</em></div>
+<div class="hand-rank-item" data-hand-category="0"><b>10</b><span><strong>Carte haute</strong><small class="hand-rank-example"><span class="memo-card suit-0">A♠</span><span class="memo-card red suit-1">J♥</span><span class="memo-card red suit-2">8♦</span><span class="memo-card suit-3">5♣</span><span class="memo-card suit-0">2♠</span></small></span><em class="hand-rank-prob">—</em></div>
+</div>
+<p class="hand-ranking-note">Les % restent affichés : probabilité de finir avec cette combinaison à la river.</p>
+</section>
+</aside>
+</section>
+</main>
+<dialog class="card-modal" id="cardModal">
+<form class="card-modal-box" method="dialog">
+<div class="modal-head">
+<div>
+<p class="section-label">Choix de carte</p>
+<p class="help" id="modalTitle">Sélectionne une carte</p>
+</div>
+<button aria-label="Fermer" class="icon-btn" value="cancel">✕</button>
+</div>
+<div class="modal-actions">
+<button class="btn btn-ghost btn-small" id="removeCard" type="button">Retirer la carte</button>
+</div>
+<div class="modal-deck" id="modalDeck"></div>
+</form>
+</dialog>
+<dialog class="card-modal" id="playerModal">
+<form class="card-modal-box player-modal-box" method="dialog">
+<div class="modal-head">
+<div>
+<p class="section-label">Joueur</p>
+<p class="help" id="playerModalTitle">Joueur</p>
+</div>
+<button aria-label="Fermer" class="icon-btn" value="cancel">✕</button>
+</div>
+<div class="player-status-actions">
+<button class="btn btn-primary" id="markActive" type="button">Dans le coup</button>
+<button class="btn btn-ghost" id="markFolded" type="button">Couché</button>
+<button aria-hidden="true" class="btn btn-ghost" id="markAllIn" tabindex="-1" type="button">All-in</button>
+<button class="btn btn-danger hidden-render-target" id="removePlayer" type="button">Supprimer</button>
+</div>
+<div aria-hidden="true" class="player-money-grid">
+<label><span>Stack restant (€)</span><input id="playerStack" min="0" step="0.01" type="number"/></label>
+<label class="hidden-render-target"><span>Total engagé dans la main (€)</span><input id="playerCommitted" min="0" step="0.01" type="number"/></label>
+<label class="hidden-render-target"><span>Mise sur le tour actuel (€)</span><input id="playerStreetBet" min="0" step="0.01" type="number"/></label>
+</div>
+<div class="range-player-settings hidden-render-target">
+<div>
+<p class="section-label">Estimation de la range</p>
+<p class="help">Ces réglages influencent uniquement le deuxième bloc de probabilité.</p>
+</div>
+<div class="range-player-grid">
+<label><span>Profil estimé</span>
+<select id="playerProfile">
+<option value="tight">Serré</option>
+<option value="standard">Standard</option>
+<option value="loose">Large</option>
+<option value="aggressive">Agressif</option>
+<option value="passive">Passif</option>
+</select>
+</label>
+<label><span>Dernière action observée</span>
+<select id="playerRangeAction">
+<option value="unknown">Inconnue / aucune information</option>
+<option value="check">Parole</option>
+<option value="call">A suivi</option>
+<option value="bet">A misé</option>
+<option value="raise">A relancé</option>
+<option value="reraise">A surrelancé</option>
+<option value="allin">A fait tapis</option>
+</select>
+</label>
+</div>
+</div>
+<div class="quick-bet-actions hidden-render-target">
+<button class="btn btn-ghost btn-small" id="playerAddSB" type="button">+ SB</button>
+<button class="btn btn-ghost btn-small" id="playerAddBB" type="button">+ 1 BB</button>
+<button class="btn btn-ghost btn-small" id="playerMatchBet" type="button">Suivre</button>
+<button class="btn btn-ghost btn-small" id="playerMinRaise" type="button">Relance min.</button>
+<button class="btn btn-ghost btn-small" id="playerAllInBet" type="button">Tout engager</button>
+</div>
+<div class="revealed-section">
+<div>
+<p class="section-label">Cartes connues</p>
+</div>
+<div>
+<div class="revealed-slots" id="revealedSlots"></div>
+<p aria-live="polite" class="revealed-selection-hint compact-modal-hint" id="revealedSelectionHint">Carte 1</p>
+</div>
+<button class="btn btn-ghost btn-small" id="clearRevealed" type="button">Effacer les cartes montrées</button>
+</div>
+<div class="modal-deck player-deck" id="playerDeck"></div>
+</form>
+</dialog>
+<dialog class="card-modal hidden-render-target" id="tableSettingsModal">
+<form class="card-modal-box table-settings-modal-box" method="dialog">
+<div class="modal-head">
+<div><p class="section-label">Réglages table</p><p class="help">Blindes, antes, dealer et options générales. Pour les stacks et les mises, clique sur chaque joueur.</p></div>
+<button aria-label="Fermer" class="icon-btn" value="cancel">✕</button>
+</div>
+<div class="simple-settings-grid"><label><span>Format</span><select id="formatPreset">
+<option selected="" value="cash5">Cash Game NLHE · Short Handed 5-max</option>
+<option value="cash3">Cash Game NLHE · 3-max</option>
+<option value="headsUp">Heads-up · 2 joueurs</option>
+<option value="expresso">Expresso · 3 joueurs</option>
+<option value="expressoNitro">Expresso Nitro · 3 joueurs</option>
+<option value="sitgo5">Sit&amp;Go · 5 joueurs</option>
+<option value="mtt6">Tournoi MTT · 6-max</option>
+<option value="mtt9">Tournoi MTT · 9-max</option>
+<option value="goFast5">GO FAST · aperçu 5-max</option>
+<option value="custom">Personnalisé</option>
+</select></label><label><span>Cartes</span><select id="cardTheme"><option selected="" value="classic">Classiques</option><option value="fourColor">4 couleurs</option></select></label></div><div class="blind-settings modal-blind-settings">
+<label><span><button class="term-link" data-term="cashGame" type="button">Type de partie</button></span><select id="gameMode"><option value="cash">Cash game</option><option value="tournament">Tournoi</option></select></label>
+<label><span><button class="term-link" data-term="blinds" type="button">Niveau de blindes</button></span><select id="blindLevel"></select></label>
+<label><span><button class="term-link" data-term="ante" type="button">Ante</button></span><input id="ante" min="0" step="0.01" type="number" value="0"/></label>
+<label><span><button class="term-link" data-term="anteMode" type="button">Type d’ante</button></span><select id="anteMode"><option value="all">Chaque joueur</option><option value="bb">Big blind ante</option></select></label>
+<label><span><button class="term-link" data-term="button" type="button">Bouton dealer</button></span><select id="dealerSeat"></select></label>
+<div class="blind-buttons">
+<button class="btn btn-ghost btn-small" id="previousBlindLevel" type="button">Niveau −</button>
+<button class="btn btn-ghost btn-small" id="nextBlindLevel" type="button">Niveau +</button>
+<button class="btn btn-ghost btn-small" id="moveDealer" type="button">Tourner le bouton</button>
+</div>
+<label class="auto-blind-check"><input checked="" id="autoPostBlinds" type="checkbox"/><span>Poster blinds et antes à chaque nouvelle main</span></label>
+<label class="auto-blind-check"><input checked="" id="autoMoveDealer" type="checkbox"/><span>Déplacer le bouton à chaque nouvelle main</span></label>
+<button class="btn btn-primary btn-small" id="postBlinds" type="button">Poster maintenant</button>
+</div>
+<div class="modal-pot-award">
+<p class="section-label">Attribution manuelle du pot</p>
+<div class="pot-award-row compact-award-row">
+<label><span>Gagnant</span><select id="potWinner"></select></label>
+<button class="btn btn-primary btn-small" id="awardPot" type="button">Attribuer / répartir</button>
+</div>
+</div>
+</form>
+</dialog>
+<dialog class="card-modal" id="pressureModal">
+<form class="card-modal-box pressure-modal-box" method="dialog">
+<div class="modal-head">
+<div><p class="section-label">Action du joueur</p><h2 id="pressureModalTitle">Pression</h2></div>
+<button aria-label="Fermer" class="icon-btn" value="cancel">✕</button>
+</div>
+<p class="pressure-help">Clique plusieurs fois sur un tour : <strong>+ action forte</strong> · <strong>++ action très forte</strong> · <strong>+++ tout engager</strong> · puis retour à rien.</p>
+<div class="pressure-street-grid" id="pressureStreetButtons">
+<button type="button" data-pressure-street="0"><span>Préflop</span><small>Aucune action marquée</small></button>
+<button type="button" data-pressure-street="1"><span>Flop</span><small>Aucune action marquée</small></button>
+<button type="button" data-pressure-street="2"><span>Turn</span><small>Aucune action marquée</small></button>
+<button type="button" data-pressure-street="3"><span>River</span><small>Aucune action marquée</small></button>
+</div>
+<div class="pressure-modal-footer"><button class="btn btn-ghost btn-small" id="clearPressure" type="button">Tout effacer</button><small>+ fort · ++ très fort · +++ tout engager</small></div>
+</form>
+</dialog>
+<dialog class="card-modal" id="estimatedHandsModal">
+<form class="card-modal-box estimated-hands-modal-box" method="dialog">
+<div class="modal-head">
+<div><p class="section-label">Lecture facultative</p><h2>Mains adverses estimées</h2></div>
+<button aria-label="Fermer" class="icon-btn" value="cancel">✕</button>
+</div>
+<p class="estimated-hands-help">Plus une case est claire, plus cette main est compatible avec les actions <strong>+ / ++ / +++</strong> renseignées. Ce n’est pas la probabilité exacte que l’adversaire possède cette main.</p>
+<div class="estimated-hands-toolbar">
+<label><span>Joueur</span><select id="estimatedHandsPlayer"></select></label>
+<div class="estimated-hands-summary" id="estimatedHandsSummary">—</div>
+</div>
+<div class="estimated-hands-legend" aria-hidden="true"><span>Peu compatible</span><i class="legend-swatch level-0"></i><i class="legend-swatch level-1"></i><i class="legend-swatch level-2"></i><i class="legend-swatch level-3"></i><i class="legend-swatch level-4"></i><i class="legend-swatch level-5"></i><span>Très compatible</span></div>
+<div class="estimated-hands-scroll"><div aria-label="Grille des mains adverses estimées" class="estimated-hands-grid" id="estimatedHandsGrid"></div></div>
+<p class="estimated-hands-note"><strong>Lecture :</strong> s = deux cartes de la même couleur · o = deux couleurs différentes. Les cartes déjà connues ou révélées sont retirées. La grille montre la compatibilité de chaque type de main avec les actions du joueur sélectionné.</p>
+</form>
+</dialog>
+<dialog class="card-modal" id="outsModal">
+<form class="card-modal-box" method="dialog">
+<div class="modal-head">
+<div>
+<p class="section-label">Combinaisons &amp; sorties</p>
+<p class="help">Projection pédagogique jusqu’à la river, à partir de tes cartes et du board actuel.</p>
+</div>
+<button aria-label="Fermer" class="icon-btn" value="cancel">✕</button>
+</div>
+<div class="outs-layout">
+<section class="outs-card">
+<h3>Ta situation actuelle</h3>
+<p id="outsCurrentSummary">Ajoute des cartes pour voir la lecture de ta main.</p>
+<ul class="draws-list" id="drawsList"></ul>
+</section>
+<section class="outs-card">
+<h3>Ce que ta main peut donner d’ici la river</h3>
+<div class="future-table" id="futureTable"></div>
+</section>
+</div>
+</form>
+</dialog>
+<dialog class="card-modal confirm-modal hidden-render-target" id="removePlayerConfirmModal">
+<form class="card-modal-box confirm-modal-box" method="dialog">
+<div class="modal-head">
+<div>
+<p class="section-label">Supprimer un joueur</p>
+<h2>Confirmation</h2>
+</div>
+<button aria-label="Fermer" class="icon-btn" value="cancel">✕</button>
+</div>
+<p class="confirm-message" id="removePlayerConfirmText">Êtes-vous sûr de vouloir supprimer ce joueur de la table ?</p>
+<p class="help">Ses mises déjà engagées resteront dans le pot et ses éventuelles cartes montrées resteront retirées du paquet jusqu’à la prochaine main.</p>
+<div class="confirm-actions">
+<button class="btn btn-ghost" id="cancelRemovePlayer" type="button">Annuler</button>
+<button class="btn btn-danger" id="confirmRemovePlayer" type="button">Oui, supprimer</button>
+</div>
+</form>
+</dialog>
+<dialog class="card-modal confirm-modal" id="finishHandModal">
+<form class="card-modal-box finish-hand-modal-box" method="dialog">
+<div class="modal-head">
+<div>
+<p class="section-label">Fin de la main</p>
+<h2>Valider ce qui s’est passé</h2>
+</div>
+<button aria-label="Fermer" class="icon-btn" value="cancel">✕</button>
+</div>
+<p class="confirm-message" id="finishHandSummary">Choisis comment la main s’est terminée.</p>
+<div class="finish-hand-grid">
+<label>
+<span>Fin de la main</span>
+<select id="finishReason">
+<option value="folds">Tous les autres se sont couchés</option>
+<option value="showdown">Showdown / cartes révélées</option>
+<option value="manual">Attribuer manuellement le pot</option>
+<option value="none">Terminer sans attribuer le pot</option>
+</select>
+</label>
+<label id="finishWinnerLabel">
+<span>Gagnant</span>
+<select id="finishWinner"></select>
+</label>
+</div>
+<div class="finish-hand-recap">
+<div><span>Street actuelle</span><strong id="finishStreet">Préflop</strong></div>
+<div><span>Pot à attribuer</span><strong id="finishPot">0,00 €</strong></div>
+<div><span>Joueurs encore éligibles</span><strong id="finishEligible">0</strong></div>
+</div>
+<p class="help" id="finishHandHelp">Si un seul joueur est encore dans le coup, il sera sélectionné automatiquement.</p>
+<div class="confirm-actions">
+<button class="btn btn-ghost" id="cancelFinishHand" type="button">Continuer la main</button>
+<button class="btn btn-primary" id="confirmFinishHand" type="button">Valider et terminer</button>
+</div>
+</form>
+</dialog>
+<dialog class="card-modal term-modal" id="termModal">
+<form class="card-modal-box term-modal-box" method="dialog">
+<div class="modal-head">
+<div>
+<p class="section-label">Lexique poker</p>
+<h2 id="termTitle">Définition</h2>
+</div>
+<button aria-label="Fermer" class="icon-btn" value="cancel">✕</button>
+</div>
+<p class="term-definition" id="termDefinition"></p>
+<div class="term-example" id="termExample"></div>
+<p class="term-room-label" id="termWinamaxLabel"></p>
+</form>
+</dialog>
+<script defer="" src="engine.js?v=11.4"></script>
+<script defer="" src="app.js?v=11.4"></script>
+</body>
+</html>
